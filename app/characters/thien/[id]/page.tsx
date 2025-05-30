@@ -65,7 +65,7 @@ const ThienCharacterDetailPage = () => {
       // Show error toast
     }
   }
-
+  
   const handleCancel = () => {
     setEditedCharacter(character)
     setIsEditing(false)

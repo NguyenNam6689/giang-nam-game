@@ -33,6 +33,48 @@ export interface ThienCharacter {
   updatedAt?: Timestamp
 }
 
+export interface HauCharacter {
+  id?: string
+  name: string
+  image: string
+  note1?: string
+  star2: string
+  star3: string
+  star4: string
+  construction: string
+  farming: string
+  production: string
+  finance: string
+  exploration: string
+  treasureName: string
+  treasureImage: string
+  level50Stats: string
+  note2?: string
+  createdAt?: Timestamp
+  updatedAt?: Timestamp
+}
+
+export interface SiCharacter {
+  id?: string
+  name: string
+  image: string
+  note1?: string
+  star2: string
+  star3: string
+  star4: string
+  construction: string
+  farming: string
+  production: string
+  finance: string
+  exploration: string
+  treasureName: string
+  treasureImage: string
+  level50Stats: string
+  note2?: string
+  createdAt?: Timestamp
+  updatedAt?: Timestamp
+}
+
 export interface ThienCharacterDetail extends ThienCharacter {
   rarity: number
   element: string
@@ -45,6 +87,8 @@ export interface ThienCharacterDetail extends ThienCharacter {
 }
 
 const COLLECTION_NAME = "thien-characters"
+const HAU_COLLECTION_NAME = "hau-characters"
+const SI_COLLECTION_NAME = "si-characters"
 
 // Thêm nhân vật mới
 export const addThienCharacter = async (character: Omit<ThienCharacter, "id" | "createdAt" | "updatedAt">) => {
@@ -155,5 +199,126 @@ export const importThienCharacters = async (characters: Omit<ThienCharacter, "id
   } catch (error) {
     console.error("Error importing characters:", error)
     throw new Error("Không thể import nhân vật")
+  }
+}
+
+export const addHauCharacter = async (character: Omit<HauCharacter, "id" | "createdAt" | "updatedAt">) => {
+  try {
+    const docRef = await addDoc(collection(db, HAU_COLLECTION_NAME), {
+      ...character,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    })
+    return { id: docRef.id, ...character }
+  } catch (error) {
+    console.error("Error adding hau character:", error)
+    throw new Error("Không thể thêm nhân vật Hầu")
+  }
+}
+
+// Lấy tất cả nhân vật Hầu
+export const getAllHauCharacters = async (): Promise<HauCharacter[]> => {
+  try {
+    const q = query(collection(db, HAU_COLLECTION_NAME), orderBy("createdAt", "desc"))
+    const querySnapshot = await getDocs(q)
+
+    return querySnapshot.docs.map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        }) as HauCharacter,
+    )
+  } catch (error) {
+    console.error("Error getting hau characters:", error)
+    throw new Error("Không thể tải danh sách nhân vật Hầu")
+  }
+}
+
+// Cập nhật nhân vật Hầu
+export const updateHauCharacter = async (id: string, character: Partial<HauCharacter>) => {
+  try {
+    const docRef = doc(db, HAU_COLLECTION_NAME, id)
+    await updateDoc(docRef, {
+      ...character,
+      updatedAt: Timestamp.now(),
+    })
+    return { id, ...character }
+  } catch (error) {
+    console.error("Error updating hau character:", error)
+    throw new Error("Không thể cập nhật nhân vật Hầu")
+  }
+}
+
+// Xóa nhân vật Hầu
+export const deleteHauCharacter = async (id: string) => {
+  try {
+    await deleteDoc(doc(db, HAU_COLLECTION_NAME, id))
+    return id
+  } catch (error) {
+    console.error("Error deleting hau character:", error)
+    throw new Error("Không thể xóa nhân vật Hầu")
+  }
+}
+
+// ===== SI CHARACTER FUNCTIONS =====
+
+// Thêm nhân vật Sĩ mới
+export const addSiCharacter = async (character: Omit<SiCharacter, "id" | "createdAt" | "updatedAt">) => {
+  try {
+    const docRef = await addDoc(collection(db, SI_COLLECTION_NAME), {
+      ...character,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    })
+    return { id: docRef.id, ...character }
+  } catch (error) {
+    console.error("Error adding si character:", error)
+    throw new Error("Không thể thêm nhân vật Sĩ")
+  }
+}
+
+// Lấy tất cả nhân vật Sĩ
+export const getAllSiCharacters = async (): Promise<SiCharacter[]> => {
+  try {
+    const q = query(collection(db, SI_COLLECTION_NAME), orderBy("createdAt", "desc"))
+    const querySnapshot = await getDocs(q)
+
+    return querySnapshot.docs.map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        }) as SiCharacter,
+    )
+  } catch (error) {
+    console.error("Error getting si characters:", error)
+    throw new Error("Không thể tải danh sách nhân vật Sĩ")
+  }
+}
+
+// Cập nhật nhân vật Sĩ
+export const updateSiCharacter = async (id: string, character: Partial<SiCharacter>) => {
+  try {
+    const docRef = doc(db, SI_COLLECTION_NAME, id)
+    await updateDoc(docRef, {
+      ...character,
+      updatedAt: Timestamp.now(),
+    })
+    return { id, ...character }
+  } catch (error) {
+    console.error("Error updating si character:", error)
+    throw new Error("Không thể cập nhật nhân vật Sĩ")
+  }
+}
+
+// Xóa nhân vật Sĩ
+export const deleteSiCharacter = async (id: string) => {
+  try {
+    await deleteDoc(doc(db, SI_COLLECTION_NAME, id))
+    return id
+  } catch (error) {
+    console.error("Error deleting si character:", error)
+    throw new Error("Không thể xóa nhân vật Sĩ")
   }
 }

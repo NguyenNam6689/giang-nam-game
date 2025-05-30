@@ -2,61 +2,54 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Edit, Trash2, Save, X, ChevronDown, ChevronUp } from "lucide-react"
-
-interface HauCharacter {
-  id: number
-  name: string
-  image: string
-  note1?: string
-  star2: string
-  star3: string
-  star4: string
-  construction: string
-  farming: string
-  production: string
-  finance: string
-  exploration: string
-  treasureName: string
-  treasureImage: string
-  level50Stats: string
-  note2?: string
-}
+import { Plus, Edit, Trash2, Save, X, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import {
+  type HauCharacter,
+  addHauCharacter,
+  getAllHauCharacters,
+  updateHauCharacter,
+  deleteHauCharacter,
+} from "@/lib/firebase-service"
 
 export default function HauCharactersPage() {
-  const [characters, setCharacters] = useState<HauCharacter[]>([
-    {
-      id: 1,
-      name: "Quan Vũ",
-      image: "/placeholder.svg?height=100&width=100",
-      note1: "Võ Thánh",
-      star2: "Tăng 15% sức mạnh chiến đấu",
-      star3: "Tăng 20% phòng thủ",
-      star4: "Tăng 25% sát thương",
-      construction: "95",
-      farming: "60",
-      production: "70",
-      finance: "75",
-      exploration: "85",
-      treasureName: "Thanh Long Đao",
-      treasureImage: "/placeholder.svg?height=60&width=60",
-      level50Stats: "HP: 3200, ATK: 220, DEF: 180",
-      note2: "Chuyên gia chiến đấu và xây dựng",
-    },
-  ])
-
+  const [characters, setCharacters] = useState<HauCharacter[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingCharacter, setEditingCharacter] = useState<HauCharacter | null>(null)
   const [formData, setFormData] = useState<Partial<HauCharacter>>({})
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const { toast } = useToast()
 
-  const toggleRowExpansion = (id: number) => {
+  // Load characters from Firebase
+  useEffect(() => {
+    loadCharacters()
+  }, [])
+
+  const loadCharacters = async () => {
+    try {
+      setLoading(true)
+      const data = await getAllHauCharacters()
+      setCharacters(data)
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách nhân vật",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleRowExpansion = (id: string) => {
     const newExpanded = new Set(expandedRows)
     if (newExpanded.has(id)) {
       newExpanded.delete(id)
@@ -66,36 +59,57 @@ export default function HauCharactersPage() {
     setExpandedRows(newExpanded)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitting(true)
 
-    if (editingCharacter) {
-      setCharacters(characters.map((char) => (char.id === editingCharacter.id ? { ...char, ...formData } : char)))
-      setEditingCharacter(null)
-    } else {
-      const newCharacter: HauCharacter = {
-        id: Date.now(),
-        name: formData.name || "",
-        image: formData.image || "/placeholder.svg?height=100&width=100",
-        note1: formData.note1,
-        star2: formData.star2 || "",
-        star3: formData.star3 || "",
-        star4: formData.star4 || "",
-        construction: formData.construction || "",
-        farming: formData.farming || "",
-        production: formData.production || "",
-        finance: formData.finance || "",
-        exploration: formData.exploration || "",
-        treasureName: formData.treasureName || "",
-        treasureImage: formData.treasureImage || "/placeholder.svg?height=60&width=60",
-        level50Stats: formData.level50Stats || "",
-        note2: formData.note2,
+    try {
+      if (editingCharacter && editingCharacter.id) {
+        // Update existing character
+        await updateHauCharacter(editingCharacter.id, formData)
+        setCharacters(characters.map((char) => (char.id === editingCharacter.id ? { ...char, ...formData } : char)))
+        toast({
+          title: "Thành công",
+          description: "Cập nhật nhân vật thành công",
+        })
+      } else {
+        // Add new character
+        const newCharacter = await addHauCharacter({
+          name: formData.name || "",
+          image: formData.image || "/placeholder.svg?height=100&width=100",
+          note1: formData.note1 || "",
+          star2: formData.star2 || "",
+          star3: formData.star3 || "",
+          star4: formData.star4 || "",
+          construction: formData.construction || "",
+          farming: formData.farming || "",
+          production: formData.production || "",
+          finance: formData.finance || "",
+          exploration: formData.exploration || "",
+          treasureName: formData.treasureName || "",
+          treasureImage: formData.treasureImage || "/placeholder.svg?height=60&width=60",
+          level50Stats: formData.level50Stats || "",
+          note2: formData.note2 || "",
+        })
+        setCharacters([newCharacter, ...characters])
+        toast({
+          title: "Thành công",
+          description: "Thêm nhân vật mới thành công",
+        })
       }
-      setCharacters([...characters, newCharacter])
-    }
 
-    setFormData({})
-    setIsAddDialogOpen(false)
+      setFormData({})
+      setEditingCharacter(null)
+      setIsAddDialogOpen(false)
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: editingCharacter ? "Không thể cập nhật nhân vật" : "Không thể thêm nhân vật",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleEdit = (character: HauCharacter) => {
@@ -104,13 +118,43 @@ export default function HauCharactersPage() {
     setIsAddDialogOpen(true)
   }
 
-  const handleDelete = (id: number) => {
-    setCharacters(characters.filter((char) => char.id !== id))
+  const handleDelete = async (character: HauCharacter) => {
+    if (!character.id) return
+
+    if (!confirm(`Bạn có chắc chắn muốn xóa nhân vật "${character.name}"?`)) {
+      return
+    }
+
+    try {
+      await deleteHauCharacter(character.id)
+      setCharacters(characters.filter((char) => char.id !== character.id))
+      toast({
+        title: "Thành công",
+        description: "Xóa nhân vật thành công",
+      })
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa nhân vật",
+        variant: "destructive",
+      })
+    }
   }
 
   const resetForm = () => {
     setEditingCharacter(null)
     setFormData({})
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Đang tải dữ liệu...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -313,8 +357,16 @@ export default function HauCharactersPage() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button type="submit" className="flex-1 bg-gray-800 hover:bg-gray-900 brush-cursor">
-                      <Save className="w-4 h-4 mr-2" />
+                    <Button
+                      type="submit"
+                      className="flex-1 bg-gray-800 hover:bg-gray-900 brush-cursor"
+                      disabled={submitting}
+                    >
+                      {submitting ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
                       {editingCharacter ? "Cập Nhật" : "Thêm Mới"}
                     </Button>
                     <Button
@@ -322,6 +374,7 @@ export default function HauCharactersPage() {
                       variant="outline"
                       onClick={() => setIsAddDialogOpen(false)}
                       className="brush-cursor"
+                      disabled={submitting}
                     >
                       <X className="w-4 h-4 mr-2" />
                       Hủy
@@ -353,10 +406,10 @@ export default function HauCharactersPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => toggleRowExpansion(character.id)}
+                        onClick={() => character.id && toggleRowExpansion(character.id)}
                         className="text-gray-600 hover:text-gray-800 p-1 brush-cursor"
                       >
-                        {expandedRows.has(character.id) ? (
+                        {character.id && expandedRows.has(character.id) ? (
                           <ChevronUp className="w-4 h-4" />
                         ) : (
                           <ChevronDown className="w-4 h-4" />
@@ -373,7 +426,7 @@ export default function HauCharactersPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(character.id)}
+                        onClick={() => handleDelete(character)}
                         className="text-red-600 hover:text-red-800 p-1 brush-cursor"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -382,7 +435,7 @@ export default function HauCharactersPage() {
                   </div>
                 </CardHeader>
 
-                {expandedRows.has(character.id) && (
+                {character.id && expandedRows.has(character.id) && (
                   <CardContent className="space-y-4">
                     {/* Star Levels */}
                     <div className="grid grid-cols-1 gap-2">

@@ -124,7 +124,7 @@ export default function ThienCharactersPage() {
         const newCharacterData = {
           name: formData.name || "",
           image: formData.image || "/placeholder.svg?height=100&width=100",
-          note1: formData.note1,
+          note1: formData.note1 || "",
           star2: formData.star2 || "",
           star3: formData.star3 || "",
           star4: formData.star4 || "",
@@ -136,7 +136,7 @@ export default function ThienCharactersPage() {
           treasureName: formData.treasureName || "",
           treasureImage: formData.treasureImage || "/placeholder.svg?height=60&width=60",
           level50Stats: formData.level50Stats || "",
-          note2: formData.note2,
+          note2: formData.note2 || "",
         }
 
         const newCharacter = await addThienCharacter(newCharacterData)
@@ -353,7 +353,7 @@ export default function ThienCharactersPage() {
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-600" />
-          <p className="text-gray-600">Đang tải dữ liệu từ Firebase...</p>
+          <p className="text-gray-600">Đang tải dữ liệu...</p>
         </div>
       </div>
     )
