@@ -147,9 +147,9 @@ export default function HomePage() {
               style={{ transform: `translateX(-${currentSlide * 100}%)` }}
             >
               {[
-                "/placeholder.svg?height=800&width=1200&text=Giang+Nam+1",
-                "/placeholder.svg?height=800&width=1200&text=Giang+Nam+2",
-                "/placeholder.svg?height=800&width=1200&text=Giang+Nam+3",
+                "/images/banel_1.jpg",
+                "/images/banel_2.jpg",
+                "/images/banel_3.jpg",
               ].map((src, index) => (
                 <div key={index} className="w-full h-full flex-shrink-0">
                   <img

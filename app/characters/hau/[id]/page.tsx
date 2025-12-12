@@ -8,14 +8,14 @@ import { Loader2, ArrowLeft, Edit, Save, X } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { type ThienCharacter, getThienCharacterById, updateThienCharacter } from "@/lib/firebase-service"
+import { type HauCharacter, getHauCharacterById, updateHauCharacter } from "@/lib/firebase-service"
 import { useToast } from "@/hooks/use-toast"
 
-const ThienCharacterDetailPage = () => {
+const HauCharacterDetailPage = () => {
   const params = useParams()
   const { toast } = useToast()
-  const [character, setCharacter] = useState<ThienCharacter | null>(null)
-  const [editingCharacter, setEditingCharacter] = useState<ThienCharacter | null>(null)
+  const [character, setCharacter] = useState<HauCharacter | null>(null)
+  const [editingCharacter, setEditingCharacter] = useState<HauCharacter | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -25,7 +25,7 @@ const ThienCharacterDetailPage = () => {
       try {
         setLoading(true)
         const id = params.id as string
-        const data = await getThienCharacterById(id)
+        const data = await getHauCharacterById(id)
         if (data) {
           setCharacter(data)
           setEditingCharacter(data)
@@ -52,7 +52,7 @@ const ThienCharacterDetailPage = () => {
 
     try {
       setSaving(true)
-      await updateThienCharacter(character.id, editingCharacter)
+      await updateHauCharacter(character.id, editingCharacter)
       setCharacter(editingCharacter)
       setIsEditing(false)
       toast({
@@ -93,7 +93,7 @@ const ThienCharacterDetailPage = () => {
         <div className="text-center">
           <p className="text-gray-600 mb-4">Không tìm thấy nhân vật</p>
           <Button asChild>
-            <Link href="/characters/thien">
+            <Link href="/characters/hau">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Quay lại danh sách
             </Link>
@@ -109,7 +109,7 @@ const ThienCharacterDetailPage = () => {
         {/* Header */}
         <div className="mb-6 flex justify-between items-center">
           <Button asChild variant="outline" className="brush-cursor">
-            <Link href="/characters/thien">
+            <Link href="/characters/hau">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Quay lại
             </Link>
@@ -375,4 +375,4 @@ const ThienCharacterDetailPage = () => {
   )
 }
 
-export default ThienCharacterDetailPage
+export default HauCharacterDetailPage

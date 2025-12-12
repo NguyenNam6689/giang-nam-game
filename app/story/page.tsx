@@ -2,77 +2,138 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Edit, Trash2, Save, X, BookOpen, User } from "lucide-react"
-
-interface Character {
-  id: number
-  name: string
-  image: string
-  story: string
-}
+import { Plus, Edit, Trash2, Save, X, BookOpen, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
+import {
+  type Story,
+  getAllStories,
+  addStory,
+  updateStory,
+  deleteStory,
+} from "@/lib/firebase-service"
 
 export default function StoryPage() {
-  const [characters, setCharacters] = useState<Character[]>([
-    {
-      id: 1,
-      name: "Lý Bạch",
-      image: "/placeholder.svg?height=200&width=150",
-      story:
-        "Lý Bạch sinh năm 701 tại Tây Vực, là một trong những thi nhân vĩ đại nhất của Trung Quốc. Ông được mệnh danh là 'Thi Tiên' với tài năng thơ ca xuất chúng và tính cách phóng khoáng, tự do. Cuộc đời ông gắn liền với rượu và thơ, tạo nên những tác phẩm bất hủ như 'Tĩnh Dạ Tư', 'Vọng Lư Sơn Thác Bố'...",
-    },
-    {
-      id: 2,
-      name: "Tô Đông Pha",
-      image: "/placeholder.svg?height=200&width=150",
-      story:
-        "Tô Đông Pha (1037-1101) là một trong tứ đại văn hào thời Tống. Ông không chỉ nổi tiếng với tài thơ văn mà còn là một quan lại tài ba, họa sĩ và nhà thư pháp xuất sắc. Cuộc đời ông trải qua nhiều thăng trầm chính trị nhưng luôn giữ được tinh thần lạc quan và triết lý sống sâu sắc...",
-    },
-  ])
-
+  const [stories, setStories] = useState<Story[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingCharacter, setEditingCharacter] = useState<Character | null>(null)
-  const [formData, setFormData] = useState<Partial<Character>>({})
+  const [editingStory, setEditingStory] = useState<Story | null>(null)
+  const [formData, setFormData] = useState<Partial<Story>>({})
+  const { toast } = useToast()
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  // Load stories from Firebase
+  useEffect(() => {
+    loadStories()
+  }, [])
 
-    if (editingCharacter) {
-      setCharacters(characters.map((char) => (char.id === editingCharacter.id ? { ...char, ...formData } : char)))
-      setEditingCharacter(null)
-    } else {
-      const newCharacter: Character = {
-        id: Date.now(),
-        name: formData.name || "",
-        image: formData.image || "/placeholder.svg?height=200&width=150",
-        story: formData.story || "",
-      }
-      setCharacters([...characters, newCharacter])
+  const loadStories = async () => {
+    try {
+      setLoading(true)
+      const data = await getAllStories()
+      setStories(data)
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách cốt truyện",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
-
-    setFormData({})
-    setIsDialogOpen(false)
   }
 
-  const handleEdit = (character: Character) => {
-    setEditingCharacter(character)
-    setFormData(character)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+
+    try {
+      if (editingStory && editingStory.id) {
+        // Update existing story
+        await updateStory(editingStory.id, formData)
+        setStories(stories.map((story) => (story.id === editingStory.id ? { ...story, ...formData } : story)))
+        toast({
+          title: "Thành công",
+          description: "Đã cập nhật cốt truyện",
+        })
+      } else {
+        // Add new story
+        const newStory = await addStory({
+          name: formData.name || "",
+          image: formData.image || "/placeholder.svg?height=200&width=150",
+          story: formData.story || "",
+        })
+        setStories([newStory, ...stories])
+        toast({
+          title: "Thành công",
+          description: "Đã thêm cốt truyện mới",
+        })
+      }
+
+      setFormData({})
+      setEditingStory(null)
+      setIsDialogOpen(false)
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: editingStory ? "Không thể cập nhật cốt truyện" : "Không thể thêm cốt truyện",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleEdit = (story: Story) => {
+    setEditingStory(story)
+    setFormData(story)
     setIsDialogOpen(true)
   }
 
-  const handleDelete = (id: number) => {
-    setCharacters(characters.filter((char) => char.id !== id))
+  const handleDelete = async (story: Story) => {
+    if (!story.id) return
+
+    if (!confirm(`Bạn có chắc chắn muốn xóa cốt truyện "${story.name}"?`)) {
+      return
+    }
+
+    try {
+      await deleteStory(story.id)
+      setStories(stories.filter((s) => s.id !== story.id))
+      toast({
+        title: "Thành công",
+        description: "Đã xóa cốt truyện",
+      })
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa cốt truyện",
+        variant: "destructive",
+      })
+    }
   }
 
   const resetForm = () => {
-    setEditingCharacter(null)
+    setEditingStory(null)
     setFormData({})
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-600" />
+          <p className="text-gray-600">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -116,12 +177,12 @@ export default function StoryPage() {
                   onClick={resetForm}
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Thêm Nhân Vật
+                  Thêm Cốt Truyện
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>{editingCharacter ? "Chỉnh Sửa Cốt Truyện" : "Thêm Cốt Truyện Mới"}</DialogTitle>
+                  <DialogTitle>{editingStory ? "Chỉnh Sửa Cốt Truyện" : "Thêm Cốt Truyện Mới"}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
@@ -131,6 +192,7 @@ export default function StoryPage() {
                       value={formData.name || ""}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
+                      disabled={submitting}
                     />
                   </div>
 
@@ -142,6 +204,7 @@ export default function StoryPage() {
                       value={formData.image || ""}
                       onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                       placeholder="/placeholder.svg?height=200&width=150"
+                      disabled={submitting}
                     />
                   </div>
 
@@ -154,19 +217,25 @@ export default function StoryPage() {
                       required
                       rows={8}
                       placeholder="Nhập nội dung cốt truyện của nhân vật..."
+                      disabled={submitting}
                     />
                   </div>
 
                   <div className="flex gap-2">
-                    <Button type="submit" className="flex-1 bg-gray-800 hover:bg-gray-900 brush-cursor">
-                      <Save className="w-4 h-4 mr-2" />
-                      {editingCharacter ? "Cập Nhật" : "Thêm Mới"}
+                    <Button type="submit" className="flex-1 bg-gray-800 hover:bg-gray-900 brush-cursor" disabled={submitting}>
+                      {submitting ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
+                      {submitting ? "Đang lưu..." : editingStory ? "Cập Nhật" : "Thêm Mới"}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => setIsDialogOpen(false)}
                       className="brush-cursor"
+                      disabled={submitting}
                     >
                       <X className="w-4 h-4 mr-2" />
                       Hủy
@@ -179,19 +248,19 @@ export default function StoryPage() {
 
           {/* Mobile-First Character Grid */}
           <div className="space-y-6 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-6">
-            {characters.map((character) => (
+            {stories.map((story) => (
               <Card
-                key={character.id}
+                key={story.id}
                 className="bg-white/90 backdrop-blur-sm border-gray-300 hover:shadow-xl transition-all duration-300 group"
               >
                 <CardHeader className="pb-4">
                   <div className="flex justify-between items-start mb-4">
-                    <CardTitle className="text-xl text-gray-900 calligraphy flex-1 mr-2">{character.name}</CardTitle>
+                    <CardTitle className="text-xl text-gray-900 calligraphy flex-1 mr-2">{story.name}</CardTitle>
                     <div className="flex gap-1 flex-shrink-0">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleEdit(character)}
+                        onClick={() => handleEdit(story)}
                         className="text-gray-600 hover:text-gray-800 p-1 brush-cursor"
                       >
                         <Edit className="w-4 h-4" />
@@ -199,7 +268,7 @@ export default function StoryPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(character.id)}
+                        onClick={() => handleDelete(story)}
                         className="text-red-600 hover:text-red-800 p-1 brush-cursor"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -209,8 +278,8 @@ export default function StoryPage() {
 
                   <div className="flex justify-center mb-4">
                     <img
-                      src={character.image || "/placeholder.svg"}
-                      alt={character.name}
+                      src={story.image || "/placeholder.svg"}
+                      alt={story.name}
                       className="w-32 h-40 object-cover rounded-lg border border-gray-300 group-hover:scale-105 transition-transform duration-300"
                     />
                   </div>
@@ -222,18 +291,18 @@ export default function StoryPage() {
                       <BookOpen className="w-4 h-4 mr-2" />
                       Cốt Truyện
                     </h4>
-                    <p className="text-gray-700 text-sm leading-relaxed line-clamp-6">{character.story}</p>
+                    <p className="text-gray-700 text-sm leading-relaxed line-clamp-6">{story.story}</p>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          {characters.length === 0 && (
+          {stories.length === 0 && (
             <div className="text-center py-12">
-              <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-600 mb-2">Chưa có cốt truyện nào</h3>
-              <p className="text-gray-500 mb-4">Hãy thêm cốt truyện đầu tiên cho nhân vật!</p>
+              <p className="text-gray-500 mb-4">Hãy thêm cốt truyện đầu tiên vào Firebase!</p>
               <Button onClick={() => setIsDialogOpen(true)} className="bg-gray-800 hover:bg-gray-900 brush-cursor">
                 <Plus className="w-4 h-4 mr-2" />
                 Thêm Cốt Truyện

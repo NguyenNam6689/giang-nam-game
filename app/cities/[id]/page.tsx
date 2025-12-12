@@ -2,140 +2,233 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Edit, Trash2, Save, X, Target, ImageIcon, ArrowLeft } from "lucide-react"
+import { Plus, Edit, Trash2, Save, X, Target, ImageIcon, ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
+import { getCityById, updateCity } from "@/lib/firebase-service"
 
 interface Quest {
-  id: number
+  id: string
   name: string
   guide: string
   image?: string
 }
 
 interface CityImage {
-  id: number
+  id: string
   url: string
   title: string
   description?: string
 }
 
 interface CityDetail {
-  id: number
+  id?: string
   name: string
+  description: string
   introduction: string
   quests: Quest[]
   images: CityImage[]
 }
 
 export default function CityDetailPage({ params }: { params: { id: string } }) {
-  const [cityDetail, setCityDetail] = useState<CityDetail>({
-    id: Number.parseInt(params.id),
-    name: "Trường An",
-    introduction:
-      "Trường An là kinh đô thịnh vượng của triều Đường, nơi hội tụ văn hóa và nghệ thuật. Thành phố này được biết đến với những cung điện tráng lệ, chợ búa nhộn nhịp và là nơi sinh sống của nhiều thi nhân, văn sĩ nổi tiếng.",
-    quests: [
-      {
-        id: 1,
-        name: "Khám phá Cung Điện",
-        guide: "Đi đến khu vực cung điện phía bắc thành phố, nói chuyện với quan lại để nhận nhiệm vụ.",
-        image: "/placeholder.svg?height=150&width=200",
-      },
-    ],
-    images: [
-      {
-        id: 1,
-        url: "/placeholder.svg?height=300&width=400",
-        title: "Cổng thành Trường An",
-        description: "Cổng chính vào thành phố",
-      },
-    ],
-  })
-
+  const [cityDetail, setCityDetail] = useState<CityDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [isEditingIntro, setIsEditingIntro] = useState(false)
-  const [introText, setIntroText] = useState(cityDetail.introduction)
+  const [introText, setIntroText] = useState("")
   const [isQuestDialogOpen, setIsQuestDialogOpen] = useState(false)
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false)
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null)
   const [editingImage, setEditingImage] = useState<CityImage | null>(null)
   const [questForm, setQuestForm] = useState<Partial<Quest>>({})
   const [imageForm, setImageForm] = useState<Partial<CityImage>>({})
+  const { toast } = useToast()
 
-  const handleSaveIntro = () => {
-    setCityDetail({ ...cityDetail, introduction: introText })
-    setIsEditingIntro(false)
+  useEffect(() => {
+    loadCityDetail()
+  }, [params.id])
+
+  const loadCityDetail = async () => {
+    try {
+      setLoading(true)
+      const city = await getCityById(params.id)
+      if (city) {
+        const detail: CityDetail = {
+          ...city,
+          introduction: city.description || "",
+          quests: city.quests || [],
+          images: city.images || [],
+        }
+        setCityDetail(detail)
+        setIntroText(detail.introduction)
+      }
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải thông tin thành phố",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleQuestSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSaveIntro = async () => {
+    if (!cityDetail?.id) return
 
-    if (editingQuest) {
-      setCityDetail({
-        ...cityDetail,
-        quests: cityDetail.quests.map((quest) => (quest.id === editingQuest.id ? { ...quest, ...questForm } : quest)),
+    try {
+      setSaving(true)
+      await updateCity(cityDetail.id, {
+        description: introText,
       })
+      setCityDetail({ ...cityDetail, introduction: introText })
+      setIsEditingIntro(false)
+      toast({
+        title: "Thành công",
+        description: "Đã cập nhật giới thiệu thành phố",
+      })
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể cập nhật giới thiệu",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleQuestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!cityDetail?.id) return
+
+    try {
+      setSaving(true)
+      let updatedQuests: Quest[]
+
+      if (editingQuest) {
+        updatedQuests = cityDetail.quests.map((quest) =>
+          quest.id === editingQuest.id ? { ...quest, ...questForm } : quest,
+        )
+      } else {
+        const newQuest: Quest = {
+          id: Date.now().toString(),
+          name: questForm.name || "",
+          guide: questForm.guide || "",
+          image: questForm.image,
+        }
+        updatedQuests = [...cityDetail.quests, newQuest]
+      }
+
+      await updateCity(cityDetail.id, { quests: updatedQuests })
+      setCityDetail({ ...cityDetail, quests: updatedQuests })
+      setQuestForm({})
       setEditingQuest(null)
-    } else {
-      const newQuest: Quest = {
-        id: Date.now(),
-        name: questForm.name || "",
-        guide: questForm.guide || "",
-        image: questForm.image,
-      }
-      setCityDetail({
-        ...cityDetail,
-        quests: [...cityDetail.quests, newQuest],
-      })
-    }
+      setIsQuestDialogOpen(false)
 
-    setQuestForm({})
-    setIsQuestDialogOpen(false)
+      toast({
+        title: "Thành công",
+        description: editingQuest ? "Đã cập nhật nhiệm vụ" : "Đã thêm nhiệm vụ mới",
+      })
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể lưu nhiệm vụ",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleImageSubmit = (e: React.FormEvent) => {
+  const handleImageSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!cityDetail?.id) return
 
-    if (editingImage) {
-      setCityDetail({
-        ...cityDetail,
-        images: cityDetail.images.map((img) => (img.id === editingImage.id ? { ...img, ...imageForm } : img)),
-      })
-      setEditingImage(null)
-    } else {
-      const newImage: CityImage = {
-        id: Date.now(),
-        url: imageForm.url || "",
-        title: imageForm.title || "",
-        description: imageForm.description,
+    try {
+      setSaving(true)
+      let updatedImages: CityImage[]
+
+      if (editingImage) {
+        updatedImages = cityDetail.images.map((img) =>
+          img.id === editingImage.id ? { ...img, ...imageForm } : img,
+        )
+      } else {
+        const newImage: CityImage = {
+          id: Date.now().toString(),
+          url: imageForm.url || "",
+          title: imageForm.title || "",
+          description: imageForm.description,
+        }
+        updatedImages = [...cityDetail.images, newImage]
       }
-      setCityDetail({
-        ...cityDetail,
-        images: [...cityDetail.images, newImage],
+
+      await updateCity(cityDetail.id, { images: updatedImages })
+      setCityDetail({ ...cityDetail, images: updatedImages })
+      setImageForm({})
+      setEditingImage(null)
+      setIsImageDialogOpen(false)
+
+      toast({
+        title: "Thành công",
+        description: editingImage ? "Đã cập nhật hình ảnh" : "Đã thêm hình ảnh mới",
+      })
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể lưu hình ảnh",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteQuest = async (id: string) => {
+    if (!cityDetail?.id) return
+
+    try {
+      const updatedQuests = cityDetail.quests.filter((quest) => quest.id !== id)
+      await updateCity(cityDetail.id, { quests: updatedQuests })
+      setCityDetail({ ...cityDetail, quests: updatedQuests })
+      toast({
+        title: "Thành công",
+        description: "Đã xóa nhiệm vụ",
+      })
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa nhiệm vụ",
+        variant: "destructive",
       })
     }
-
-    setImageForm({})
-    setIsImageDialogOpen(false)
   }
 
-  const handleDeleteQuest = (id: number) => {
-    setCityDetail({
-      ...cityDetail,
-      quests: cityDetail.quests.filter((quest) => quest.id !== id),
-    })
-  }
+  const handleDeleteImage = async (id: string) => {
+    if (!cityDetail?.id) return
 
-  const handleDeleteImage = (id: number) => {
-    setCityDetail({
-      ...cityDetail,
-      images: cityDetail.images.filter((img) => img.id !== id),
-    })
+    try {
+      const updatedImages = cityDetail.images.filter((img) => img.id !== id)
+      await updateCity(cityDetail.id, { images: updatedImages })
+      setCityDetail({ ...cityDetail, images: updatedImages })
+      toast({
+        title: "Thành công",
+        description: "Đã xóa hình ảnh",
+      })
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa hình ảnh",
+        variant: "destructive",
+      })
+    }
   }
 
   const resetQuestForm = () => {
@@ -146,6 +239,33 @@ export default function CityDetailPage({ params }: { params: { id: string } }) {
   const resetImageForm = () => {
     setEditingImage(null)
     setImageForm({})
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-600" />
+          <p className="text-gray-600">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!cityDetail) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Không tìm thấy thành phố</h2>
+          <Button asChild>
+            <Link href="/cities">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Quay lại danh sách
+            </Link>
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -192,13 +312,18 @@ export default function CityDetailPage({ params }: { params: { id: string } }) {
                     onChange={(e) => setIntroText(e.target.value)}
                     rows={6}
                     className="w-full"
+                    disabled={saving}
                   />
                   <div className="flex gap-2">
-                    <Button onClick={handleSaveIntro} className="bg-gray-800 hover:bg-gray-900">
-                      <Save className="w-4 h-4 mr-2" />
-                      Lưu
+                    <Button onClick={handleSaveIntro} className="bg-gray-800 hover:bg-gray-900" disabled={saving}>
+                      {saving ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
+                      {saving ? "Đang lưu..." : "Lưu"}
                     </Button>
-                    <Button variant="outline" onClick={() => setIsEditingIntro(false)}>
+                    <Button variant="outline" onClick={() => setIsEditingIntro(false)} disabled={saving}>
                       <X className="w-4 h-4 mr-2" />
                       Hủy
                     </Button>
@@ -234,6 +359,7 @@ export default function CityDetailPage({ params }: { params: { id: string } }) {
                           value={questForm.name || ""}
                           onChange={(e) => setQuestForm({ ...questForm, name: e.target.value })}
                           required
+                          disabled={saving}
                         />
                       </div>
 
@@ -245,6 +371,7 @@ export default function CityDetailPage({ params }: { params: { id: string } }) {
                           onChange={(e) => setQuestForm({ ...questForm, guide: e.target.value })}
                           required
                           rows={3}
+                          disabled={saving}
                         />
                       </div>
 
@@ -256,15 +383,25 @@ export default function CityDetailPage({ params }: { params: { id: string } }) {
                           value={questForm.image || ""}
                           onChange={(e) => setQuestForm({ ...questForm, image: e.target.value })}
                           placeholder="/placeholder.svg?height=150&width=200"
+                          disabled={saving}
                         />
                       </div>
 
                       <div className="flex gap-2">
-                        <Button type="submit" className="flex-1 bg-gray-800 hover:bg-gray-900">
-                          <Save className="w-4 h-4 mr-2" />
-                          {editingQuest ? "Cập Nhật" : "Thêm Mới"}
+                        <Button type="submit" className="flex-1 bg-gray-800 hover:bg-gray-900" disabled={saving}>
+                          {saving ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          {saving ? "Đang lưu..." : editingQuest ? "Cập Nhật" : "Thêm Mới"}
                         </Button>
-                        <Button type="button" variant="outline" onClick={() => setIsQuestDialogOpen(false)}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsQuestDialogOpen(false)}
+                          disabled={saving}
+                        >
                           <X className="w-4 h-4 mr-2" />
                           Hủy
                         </Button>
@@ -354,6 +491,7 @@ export default function CityDetailPage({ params }: { params: { id: string } }) {
                           onChange={(e) => setImageForm({ ...imageForm, url: e.target.value })}
                           required
                           placeholder="/placeholder.svg?height=300&width=400"
+                          disabled={saving}
                         />
                       </div>
 
@@ -364,6 +502,7 @@ export default function CityDetailPage({ params }: { params: { id: string } }) {
                           value={imageForm.title || ""}
                           onChange={(e) => setImageForm({ ...imageForm, title: e.target.value })}
                           required
+                          disabled={saving}
                         />
                       </div>
 
@@ -373,15 +512,20 @@ export default function CityDetailPage({ params }: { params: { id: string } }) {
                           id="imageDescription"
                           value={imageForm.description || ""}
                           onChange={(e) => setImageForm({ ...imageForm, description: e.target.value })}
+                          disabled={saving}
                         />
                       </div>
 
                       <div className="flex gap-2">
-                        <Button type="submit" className="flex-1 bg-gray-800 hover:bg-gray-900">
-                          <Save className="w-4 h-4 mr-2" />
-                          {editingImage ? "Cập Nhật" : "Thêm Mới"}
+                        <Button type="submit" className="flex-1 bg-gray-800 hover:bg-gray-900" disabled={saving}>
+                          {saving ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          {saving ? "Đang lưu..." : editingImage ? "Cập Nhật" : "Thêm Mới"}
                         </Button>
-                        <Button type="button" variant="outline" onClick={() => setIsImageDialogOpen(false)}>
+                        <Button type="button" variant="outline" onClick={() => setIsImageDialogOpen(false)} disabled={saving}>
                           <X className="w-4 h-4 mr-2" />
                           Hủy
                         </Button>

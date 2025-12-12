@@ -2,61 +2,93 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Edit, Trash2, MapPin, Save, X } from "lucide-react"
+import { Plus, Edit, Trash2, MapPin, Save, X, Loader2 } from "lucide-react"
 import Link from "next/link"
-
-interface City {
-  id: number
-  name: string
-  description: string
-  image: string
-}
+import { useToast } from "@/hooks/use-toast"
+import {
+  type City,
+  getAllCities,
+  addCity,
+  updateCity,
+  deleteCity,
+} from "@/lib/firebase-service"
 
 export default function CitiesPage() {
-  const [cities, setCities] = useState<City[]>([
-    {
-      id: 1,
-      name: "Trường An",
-      description: "Kinh đô thịnh vượng của triều Đường, nơi hội tụ văn hóa và nghệ thuật.",
-      image: "/placeholder.svg?height=200&width=300",
-    },
-    {
-      id: 2,
-      name: "Biện Kinh",
-      description: "Thủ đô của triều Tống, trung tâm thương mại và học thuật phát triển.",
-      image: "/placeholder.svg?height=200&width=300",
-    },
-  ])
-
+  const [cities, setCities] = useState<City[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingCity, setEditingCity] = useState<City | null>(null)
   const [formData, setFormData] = useState<Partial<City>>({})
+  const { toast } = useToast()
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  // Load cities from Firebase
+  useEffect(() => {
+    loadCities()
+  }, [])
 
-    if (editingCity) {
-      setCities(cities.map((city) => (city.id === editingCity.id ? { ...city, ...formData } : city)))
-      setEditingCity(null)
-    } else {
-      const newCity: City = {
-        id: Date.now(),
-        name: formData.name || "",
-        description: formData.description || "",
-        image: formData.image || "/placeholder.svg?height=200&width=300",
-      }
-      setCities([...cities, newCity])
+  const loadCities = async () => {
+    try {
+      setLoading(true)
+      const data = await getAllCities()
+      setCities(data)
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách thành phố",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
+  }
 
-    setFormData({})
-    setIsAddDialogOpen(false)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+
+    try {
+      if (editingCity && editingCity.id) {
+        // Update existing city
+        await updateCity(editingCity.id, formData)
+        setCities(cities.map((city) => (city.id === editingCity.id ? { ...city, ...formData } : city)))
+        toast({
+          title: "Thành công",
+          description: "Đã cập nhật thành phố",
+        })
+      } else {
+        // Add new city
+        const newCity = await addCity({
+          name: formData.name || "",
+          description: formData.description || "",
+          image: formData.image || "/placeholder.svg?height=200&width=300",
+        })
+        setCities([newCity, ...cities])
+        toast({
+          title: "Thành công",
+          description: "Đã thêm thành phố mới",
+        })
+      }
+
+      setFormData({})
+      setEditingCity(null)
+      setIsAddDialogOpen(false)
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: editingCity ? "Không thể cập nhật thành phố" : "Không thể thêm thành phố",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleEdit = (city: City) => {
@@ -65,13 +97,43 @@ export default function CitiesPage() {
     setIsAddDialogOpen(true)
   }
 
-  const handleDelete = (id: number) => {
-    setCities(cities.filter((city) => city.id !== id))
+  const handleDelete = async (city: City) => {
+    if (!city.id) return
+
+    if (!confirm(`Bạn có chắc chắn muốn xóa thành phố "${city.name}"?`)) {
+      return
+    }
+
+    try {
+      await deleteCity(city.id)
+      setCities(cities.filter((c) => c.id !== city.id))
+      toast({
+        title: "Thành công",
+        description: "Đã xóa thành phố",
+      })
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa thành phố",
+        variant: "destructive",
+      })
+    }
   }
 
   const resetForm = () => {
     setEditingCity(null)
     setFormData({})
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-600" />
+          <p className="text-gray-600">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -130,6 +192,7 @@ export default function CitiesPage() {
                       value={formData.name || ""}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
+                      disabled={submitting}
                     />
                   </div>
 
@@ -141,6 +204,7 @@ export default function CitiesPage() {
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       required
                       rows={3}
+                      disabled={submitting}
                     />
                   </div>
 
@@ -152,19 +216,25 @@ export default function CitiesPage() {
                       value={formData.image || ""}
                       onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                       placeholder="/placeholder.svg?height=200&width=300"
+                      disabled={submitting}
                     />
                   </div>
 
                   <div className="flex gap-2">
-                    <Button type="submit" className="flex-1 bg-gray-800 hover:bg-gray-900 brush-cursor">
-                      <Save className="w-4 h-4 mr-2" />
-                      {editingCity ? "Cập Nhật" : "Thêm Mới"}
+                    <Button type="submit" className="flex-1 bg-gray-800 hover:bg-gray-900 brush-cursor" disabled={submitting}>
+                      {submitting ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
+                      {submitting ? "Đang lưu..." : editingCity ? "Cập Nhật" : "Thêm Mới"}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => setIsAddDialogOpen(false)}
                       className="brush-cursor"
+                      disabled={submitting}
                     >
                       <X className="w-4 h-4 mr-2" />
                       Hủy
@@ -197,7 +267,7 @@ export default function CitiesPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(city.id)}
+                        onClick={() => handleDelete(city)}
                         className="text-red-600 hover:text-red-800 p-1 brush-cursor"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -228,11 +298,11 @@ export default function CitiesPage() {
             ))}
           </div>
 
-          {cities.length === 0 && (
+          {cities.length === 0 && !loading && (
             <div className="text-center py-12">
               <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-600 mb-2">Chưa có thành phố nào</h3>
-              <p className="text-gray-500 mb-4">Hãy thêm thành phố đầu tiên để bắt đầu!</p>
+              <p className="text-gray-500 mb-4">Hãy thêm thành phố đầu tiên vào Firebase!</p>
               <Button onClick={() => setIsAddDialogOpen(true)} className="bg-gray-800 hover:bg-gray-900 brush-cursor">
                 <Plus className="w-4 h-4 mr-2" />
                 Thêm Thành Phố

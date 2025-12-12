@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label"
 import { Plus, Edit, Trash2, Save, X, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
 import {
   type HauCharacter,
   addHauCharacter,
@@ -505,6 +506,13 @@ export default function HauCharactersPage() {
                         <p className="text-gray-700 text-sm">{character.note2}</p>
                       </div>
                     )}
+
+                    {/* View Detail Button */}
+                    <div className="flex gap-2 mt-4">
+                      <Button asChild className="flex-1 bg-blue-600 hover:bg-blue-700 text-white brush-cursor">
+                        <Link href={`/characters/hau/${character.id}`}>Xem Chi Tiết</Link>
+                      </Button>
+                    </div>
                   </CardContent>
                 )}
               </Card>

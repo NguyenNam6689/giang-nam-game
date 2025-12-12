@@ -1,0 +1,36 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Rules cho Thien characters (Nhân vật Thiên)
+    match /thien-characters/{document=**} {
+      allow read, write: if true;
+    }
+    
+    // Rules cho Hau characters (Nhân vật Hầu)
+    match /hau-characters/{document=**} {
+      allow read, write: if true;
+    }
+    
+    // Rules cho Si characters (Nhân vật Sĩ)
+    match /si-characters/{document=**} {
+      allow read, write: if true;
+    }
+    
+    // Rules cho Cities (Thành phố)
+    match /cities/{document=**} {
+      allow read, write: if true;
+    }
+    
+    // Rules cho Stories (Cốt truyện)
+    match /stories/{document=**} {
+      allow read, write: if true;
+    }
+    
+    // Rules cho Quests (Nhiệm vụ)
+    match /quests/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

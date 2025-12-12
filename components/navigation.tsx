@@ -72,8 +72,8 @@ export default function Navigation() {
     },
     { title: "Thành Phố", href: "/cities" },
     { title: "Cốt Truyện", href: "/story" },
-    { title: "Cộng Đồng", href: "/community" },
-    { title: "Cài Đặt", href: "/settings" },
+    // { title: "Cộng Đồng", href: "/community" },
+    // { title: "Cài Đặt", href: "/settings" },
   ]
 
   return (
